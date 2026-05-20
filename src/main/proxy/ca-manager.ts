@@ -13,7 +13,7 @@ const CACHE_MAX_SIZE = 500;
  * Increment this when the CA generation logic changes (e.g., different extensions,
  * issuer format fix). Existing CA certs on disk will be regenerated automatically.
  */
-const CA_VERSION = 3;
+const CA_VERSION = 4;
 const CA_VERSION_FILE = "ca-version.txt";
 
 /**
@@ -241,6 +241,13 @@ export class CaManager {
   }
 
   private randomSerial(): string {
-    return forge.util.bytesToHex(forge.random.getBytesSync(16));
+    const bytes = forge.random.getBytesSync(16);
+    // If the first byte has its high bit set, the DER INTEGER will be
+    // interpreted as negative. Prepend a 0x00 byte to keep it positive.
+    // This is required by X.690 DER and enforced by Android BoringSSL.
+    if (bytes.charCodeAt(0) >= 0x80) {
+      return forge.util.bytesToHex("\x00" + bytes);
+    }
+    return forge.util.bytesToHex(bytes);
   }
 }

@@ -11,7 +11,9 @@
       "Bash(node *)",
       "Bash(openssl verify *)",
       "Read(//tmp/**)",
-      "Bash(openssl asn1parse *)"
+      "Bash(openssl asn1parse *)",
+      "Bash(npx tsx *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
