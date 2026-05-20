@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git clone *)",
+      "Bash(openssl version *)",
+      "Bash(openssl x509 *)",
+      "Bash(npm ls *)",
+      "Bash(pnpm list *)",
+      "Bash(node -e \"console.log\\(require\\('module'\\).globalPaths\\)\")",
+      "Bash(pnpm install *)",
+      "Bash(node *)",
+      "Bash(openssl verify *)",
+      "Read(//tmp/**)",
+      "Bash(openssl asn1parse *)"
+    ]
+  }
+}

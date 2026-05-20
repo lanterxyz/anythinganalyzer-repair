@@ -10,6 +10,13 @@ const LEAF_VALIDITY_DAYS = 825; // Apple max
 const CACHE_MAX_SIZE = 500;
 
 /**
+ * Increment this when the CA generation logic changes (e.g., different extensions,
+ * issuer format fix). Existing CA certs on disk will be regenerated automatically.
+ */
+const CA_VERSION = 3;
+const CA_VERSION_FILE = "ca-version.txt";
+
+/**
  * CaManager — Generates and caches a root CA certificate,
  * then issues per-host leaf certificates on demand for MITM TLS interception.
  */
@@ -31,8 +38,18 @@ export class CaManager {
 
     const keyPath = join(this.certsDir, CA_KEY_FILE);
     const certPath = join(this.certsDir, CA_CERT_FILE);
+    const versionPath = join(this.certsDir, CA_VERSION_FILE);
 
-    if (existsSync(keyPath) && existsSync(certPath)) {
+    // Regenerate if version mismatch or files missing
+    const versionMatch =
+      existsSync(versionPath) &&
+      readFileSync(versionPath, "utf-8").trim() === String(CA_VERSION);
+
+    if (
+      existsSync(keyPath) &&
+      existsSync(certPath) &&
+      versionMatch
+    ) {
       const keyPem = readFileSync(keyPath, "utf-8");
       const certPem = readFileSync(certPath, "utf-8");
       const privateKey = forge.pki.privateKeyFromPem(keyPem);
@@ -42,7 +59,12 @@ export class CaManager {
       } as forge.pki.rsa.KeyPair;
       this.caCert = forge.pki.certificateFromPem(certPem);
     } else {
+      // Version mismatch or missing — regenerate CA
+      if (existsSync(keyPath) || existsSync(certPath)) {
+        console.log("[CaManager] CA version changed, regenerating root certificate");
+      }
       await this.generate();
+      writeFileSync(versionPath, String(CA_VERSION), "utf-8");
     }
   }
 
@@ -131,6 +153,10 @@ export class CaManager {
       {
         name: "subjectKeyIdentifier",
       },
+      {
+        name: "authorityKeyIdentifier",
+        keyIdentifier: true,
+      },
     ]);
 
     cert.sign(keys.privateKey, forge.md.sha256.create());
@@ -163,13 +189,29 @@ export class CaManager {
     );
 
     cert.setSubject([{ shortName: "CN", value: hostname }]);
-    cert.setIssuer(this.caCert.subject.attributes);
+    cert.setIssuer([
+      { shortName: "CN", value: "Anything Analyzer CA" },
+      { shortName: "O", value: "Anything Analyzer" },
+    ]);
 
     // SAN: support both DNS name and IP address
     const isIP = /^[\d.]+$/.test(hostname) || hostname.includes(":");
     const altNames: { type: number; value?: string; ip?: string }[] = isIP
       ? [{ type: 7, ip: hostname }]
       : [{ type: 2, value: hostname }];
+
+    // Build authorityKeyIdentifier from the CA certificate's subjectKeyIdentifier.
+    // Forge stores SKI as a hex string (40 chars) but authorityKeyIdentifier's
+    // keyIdentifier field expects raw bytes (20 bytes). We must decode it.
+    const caSkiExt = this.caCert.extensions.find(
+      (e: forge.pki.Extension) => e.name === "subjectKeyIdentifier",
+    );
+    const caSkiRaw = caSkiExt
+      ? forge.util.hexToBytes(
+          (caSkiExt as forge.pki.Extension & { subjectKeyIdentifier: string })
+            .subjectKeyIdentifier,
+        )
+      : undefined;
 
     cert.setExtensions([
       { name: "basicConstraints", cA: false },
@@ -183,13 +225,13 @@ export class CaManager {
       { name: "subjectKeyIdentifier" },
       {
         name: "authorityKeyIdentifier",
-        keyIdentifier: true,
+        ...(caSkiRaw ? { keyIdentifier: caSkiRaw } : { keyIdentifier: false }),
       },
     ]);
 
     cert.sign(this.caKey.privateKey, forge.md.sha256.create());
 
-    // Include CA cert in chain so mobile clients can verify
+    // Include CA cert in chain so mobile clients receive the full chain
     const leafPem = forge.pki.certificateToPem(cert);
     const caPem = forge.pki.certificateToPem(this.caCert!);
     return {
