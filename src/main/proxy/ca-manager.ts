@@ -1,4 +1,5 @@
 import * as forge from "node-forge";
+import * as crypto from "crypto";
 import * as tls from "tls";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
@@ -13,7 +14,7 @@ const CACHE_MAX_SIZE = 500;
  * Increment this when the CA generation logic changes (e.g., different extensions,
  * issuer format fix). Existing CA certs on disk will be regenerated automatically.
  */
-const CA_VERSION = 4;
+const CA_VERSION = 5;
 const CA_VERSION_FILE = "ca-version.txt";
 
 /**
@@ -87,6 +88,23 @@ export class CaManager {
   }
 
   /**
+   * Compute the OpenSSL subject_hash_old for the CA certificate.
+   * This is MD5(DER-encoded subject DN) with the first 4 bytes in little-endian.
+   * Used for naming the file in Android's /system/etc/security/cacerts/ directory.
+   */
+  getSubjectHashOld(): string {
+    if (!this.caCert) throw new Error("CA not initialized");
+    const certAsn1 = forge.pki.certificateToAsn1(this.caCert);
+    const tbsCert = certAsn1.value[0] as forge.asn1.Asn1;
+    // TBSCertificate: [0]version, serial, sigAlgo, issuer, validity, subject, ...
+    const subjectAsn1 = tbsCert.value[5] as forge.asn1.Asn1;
+    const subjectDer = forge.asn1.toDer(subjectAsn1);
+    const subjectDerBuf = Buffer.from(subjectDer.getBytes(), "binary");
+    const md5 = crypto.createHash("md5").update(subjectDerBuf).digest();
+    return md5.readUInt32LE(0).toString(16).padStart(8, "0");
+  }
+
+  /**
    * Get (or create) a TLS SecureContext for the given hostname.
    */
   getSecureContextForHost(hostname: string): tls.SecureContext {
@@ -130,9 +148,14 @@ export class CaManager {
     const now = new Date();
     cert.validity.notBefore = now;
     cert.validity.notAfter = new Date(
-      now.getFullYear() + CA_VALIDITY_YEARS,
-      now.getMonth(),
-      now.getDate(),
+      Date.UTC(
+        now.getUTCFullYear() + CA_VALIDITY_YEARS,
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        now.getUTCHours(),
+        now.getUTCMinutes(),
+        now.getUTCSeconds(),
+      ),
     );
 
     const attrs: forge.pki.CertificateField[] = [
@@ -183,9 +206,14 @@ export class CaManager {
     const now = new Date();
     cert.validity.notBefore = now;
     cert.validity.notAfter = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + LEAF_VALIDITY_DAYS,
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + LEAF_VALIDITY_DAYS,
+        now.getUTCHours(),
+        now.getUTCMinutes(),
+        now.getUTCSeconds(),
+      ),
     );
 
     cert.setSubject([{ shortName: "CN", value: hostname }]);
@@ -219,8 +247,9 @@ export class CaManager {
         name: "keyUsage",
         digitalSignature: true,
         keyEncipherment: true,
+        critical: true,
       },
-      { name: "extKeyUsage", serverAuth: true },
+      { name: "extKeyUsage", serverAuth: true, critical: true },
       { name: "subjectAltName", altNames },
       { name: "subjectKeyIdentifier" },
       {

@@ -1038,28 +1038,41 @@ export class MitmProxyServer extends EventEmitter {
   ): void {
     const reqPath = url.parse(req.url || "/").pathname || "/";
 
-    if (reqPath === "/cert.crt" || reqPath === "/cert.pem" || reqPath === "/cert.cer") {
+    if (reqPath === "/cert.crt" || reqPath === "/cert.pem" || reqPath === "/cert.cer" || reqPath === "/cert.android-system") {
       // Serve the CA certificate file for download
       try {
-        // .cer → DER (binary) format for mobile compatibility
-        // .crt / .pem → PEM (text) format
-        const isDer = reqPath === "/cert.cer";
-        const certContent = isDer
-          ? getCertDerContent(this.caManager)
-          : getCertFileContent(this.caManager);
-        const contentType = isDer
-          ? "application/x-x509-ca-cert"
-          : "application/x-pem-file";
-        const filename = isDer
-          ? "anything-analyzer-ca.cer"
-          : "anything-analyzer-ca.pem";
-        res.writeHead(200, {
-          "Content-Type": contentType,
-          "Content-Disposition": `attachment; filename=\"${filename}\"`,
-          "Content-Length": certContent.length,
-          "Cache-Control": "no-cache",
-        });
-        res.end(certContent);
+        if (reqPath === "/cert.android-system") {
+          // PEM format with Android system cert naming ({hash}.0)
+          const hash = this.caManager.getSubjectHashOld();
+          const certContent = getCertFileContent(this.caManager);
+          res.writeHead(200, {
+            "Content-Type": "application/x-pem-file",
+            "Content-Disposition": `attachment; filename="${hash}.0"`,
+            "Content-Length": certContent.length,
+            "Cache-Control": "no-cache",
+          });
+          res.end(certContent);
+        } else {
+          // .cer → DER (binary) format for mobile compatibility
+          // .crt / .pem → PEM (text) format
+          const isDer = reqPath === "/cert.cer";
+          const certContent = isDer
+            ? getCertDerContent(this.caManager)
+            : getCertFileContent(this.caManager);
+          const contentType = isDer
+            ? "application/x-x509-ca-cert"
+            : "application/x-pem-file";
+          const filename = isDer
+            ? "anything-analyzer-ca.cer"
+            : "anything-analyzer-ca.pem";
+          res.writeHead(200, {
+            "Content-Type": contentType,
+            "Content-Disposition": `attachment; filename=\"${filename}\"`,
+            "Content-Length": certContent.length,
+            "Cache-Control": "no-cache",
+          });
+          res.end(certContent);
+        }
       } catch (err) {
         console.error("[MitmProxy] Failed to read CA cert:", err);
         res.writeHead(500);
@@ -1073,9 +1086,10 @@ export class MitmProxyServer extends EventEmitter {
     // LAN devices that access the proxy directly by IP (not via cert.anything.test).
     const ua = req.headers["user-agent"] || "";
     const reqHost = req.headers.host || "";
+    const certHash = this.caManager.getSubjectHashOld();
     const html = isCertDownloadHost(reqHost.split(":")[0])
-      ? generateCertPage(ua)
-      : generateCertPage(ua, reqHost);
+      ? generateCertPage(ua, undefined, certHash)
+      : generateCertPage(ua, reqHost, certHash);
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-cache",

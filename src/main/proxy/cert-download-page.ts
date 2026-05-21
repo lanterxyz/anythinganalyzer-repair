@@ -25,8 +25,9 @@ function detectPlatform(ua: string): "ios" | "android" | "desktop" {
  * @param overrideHost Optional host (ip:port or hostname:port) to use for the download link.
  *                     When a LAN device accesses the proxy directly by IP, this ensures the
  *                     download link points back to the same accessible address.
+ * @param certHash Optional OpenSSL subject_hash_old for Android system cert filename.
  */
-export function generateCertPage(ua: string, overrideHost?: string): string {
+export function generateCertPage(ua: string, overrideHost?: string, certHash?: string): string {
   const platform = detectPlatform(ua);
   const defaultHost = platform === "ios" ? CERT_DOWNLOAD_HOST : CERT_DOWNLOAD_FALLBACK_HOST;
   const downloadHost = overrideHost || defaultHost;
@@ -106,17 +107,18 @@ h1{font-size:20px;text-align:center;margin-bottom:8px;color:#f8fafc}
       <div class="step"><span class="step-num">1</span><span>确保手机与电脑连接在<strong>同一局域网</strong>下</span></div>
       <div class="step"><span class="step-num">2</span><span>打开「设置」→「WLAN」→ <strong>长按</strong>当前连接的 Wi-Fi（或点击齿轮图标）→ 选择「修改网络」</span></div>
       <div class="step"><span class="step-num">3</span><span>展开「高级选项」→ 代理选择「手动」→ 主机名填<strong>电脑的 IP 地址</strong>，端口填 <strong>代理端口号</strong>（默认 8888）→ 保存</span></div>
-      <div class="step"><span class="step-num">4</span><span>打开任意浏览器，访问本页面并点击上方「下载证书」按钮，将 .cer 文件保存到手机</span></div>
-      <div class="step"><span class="step-num">5</span><span><strong>方式一（推荐）：</strong>打开「设置」→「安全」（或「安全和隐私」）→「更多安全设置」→「加密与凭据」→「安装证书」→ 选择「<strong>CA 证书</strong>」</span></div>
-      <div class="step"><span class="step-num">6</span><span>系统会弹出安全警告「安装 CA 证书可能允许第三方监控流量...」→ 点击「<strong>仍然安装</strong>」→ 验证指纹/密码/PIN</span></div>
-      <div class="step"><span class="step-num">7</span><span>在文件选择器中找到刚下载的 <code>anything-analyzer-ca.cer</code> 文件（通常在 Download 文件夹）→ 点击选择</span></div>
-      <div class="step"><span class="step-num">8</span><span>提示「已安装 CA 证书」即为成功</span></div>
+      <div class="step"><span class="step-num">4</span><span>打开浏览器，点击上方「下载证书」按钮安装用户 CA 证书</span></div>
+      <div class="step"><span class="step-num">5</span><span>安装后在「设置」→「安全」→「加密与凭据」→「信任的凭据」→「用户」选项卡中确认能看到「Anything Analyzer CA」</span></div>
+      <div class="step"><span class="step-num">6</span><span>打开浏览器访问任意 HTTPS 网站验证（<strong>用户 CA 对浏览器有效</strong>）</span></div>
     </div>
     <div class="steps" style="margin-top:12px">
-      <h2>⚡ 验证证书是否安装成功</h2>
-      <div class="step"><span class="step-num">1</span><span>前往「设置」→「安全」→「加密与凭据」→「信任的凭据」→ 切换到「用户」选项卡</span></div>
-      <div class="step"><span class="step-num">2</span><span>应能看到「Anything Analyzer CA」→ 点击可查看证书详情和有效期</span></div>
+      <h2>🔧 Root 用户：将证书移入系统信任区（让所有 App 信任）</h2>
+      <div class="step"><span class="step-num">1</span><span>点击下方<strong>「下载系统证书」</strong>按钮，保存 <code>${certHash || "xxxxxxxx"}.0</code> 文件（<strong>PEM 格式，已自动命名</strong>）</span></div>
+      <div class="step"><span class="step-num">2</span><span>将下载的 <code>${certHash || "xxxxxxxx"}.0</code> 文件复制到系统证书目录：<br><code>/system/etc/security/cacerts/</code></span></div>
+      <div class="step"><span class="step-num">3</span><span><strong>⚠ 必须重启设备！</strong>Android 在开机时加载系统证书，添加文件后必须重启才能生效</span></div>
+      <div class="step"><span class="step-num">4</span><span>重启后在「设置」→「安全」→「信任的凭据」→「系统」选项卡中确认能看到「Anything Analyzer CA」</span></div>
     </div>
+    <a class="download-btn primary" href="http://${downloadHost}/cert.android-system" style="background:linear-gradient(135deg,#10b981,#059669);margin-top:4px">⬇ 下载系统证书（Root 用）</a>
     <div class="steps" style="margin-top:12px">
       <h2>🔧 不同 Android 品牌的设置路径</h2>
       <div class="step"><span class="step-num">•</span><span><strong>小米/Redmi (MIUI/HyperOS)：</strong>设置 → 密码与安全 → 系统安全 → 加密与凭据 → 安装证书 → CA 证书</span></div>
@@ -130,6 +132,8 @@ h1{font-size:20px;text-align:center;margin-bottom:8px;color:#f8fafc}
     <div class="note"><strong>⚠ Android 特别说明：</strong><br>
     • <strong>Android 7.0+ 限制：</strong>用户安装的 CA 证书默认只对<strong>浏览器</strong>有效，大部分 App 不信任用户 CA。这是 Google 的安全策略，属于正常现象<br>
     • <strong>如需让所有 App 信任：</strong>需要 Root 权限 + 将证书移入系统证书目录（/system/etc/security/cacerts/），或使用 Magisk + MoveUserCertificates 模块<br>
+    • <strong>移入系统目录后必须重启！</strong>Android 在开机时加载系统证书，仅复制文件不会立即生效<br>
+    • <strong>系统证书必须是 PEM 格式：</strong>请使用上方「下载系统证书」按钮获取正确格式和文件名，<strong>不要</strong>将 .cer（DER 格式）文件直接移入系统目录<br>
     • <strong>安装时要求设置锁屏？</strong>这是 Android 安全要求，安装 CA 证书必须设置 PIN/密码/图案锁屏<br>
     • <strong>使用完毕后</strong> → 记得回到 Wi-Fi 设置将代理改回「无」</div>
   </div>
