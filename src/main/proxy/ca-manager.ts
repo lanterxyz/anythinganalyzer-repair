@@ -14,7 +14,7 @@ const CACHE_MAX_SIZE = 500;
  * Increment this when the CA generation logic changes (e.g., different extensions,
  * issuer format fix). Existing CA certs on disk will be regenerated automatically.
  */
-const CA_VERSION = 5;
+const CA_VERSION = 6;
 const CA_VERSION_FILE = "ca-version.txt";
 
 /**
@@ -146,7 +146,7 @@ export class CaManager {
     cert.serialNumber = this.randomSerial();
 
     const now = new Date();
-    cert.validity.notBefore = now;
+    cert.validity.notBefore = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     cert.validity.notAfter = new Date(
       Date.UTC(
         now.getUTCFullYear() + CA_VALIDITY_YEARS,
@@ -197,14 +197,14 @@ export class CaManager {
       throw new Error("CA not initialized");
     }
 
-    const keys = forge.pki.rsa.generateKeyPair({ bits: 2048 });
+    const keys = this.caKey;
     const cert = forge.pki.createCertificate();
 
     cert.publicKey = keys.publicKey;
     cert.serialNumber = this.randomSerial();
 
     const now = new Date();
-    cert.validity.notBefore = now;
+    cert.validity.notBefore = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     cert.validity.notAfter = new Date(
       Date.UTC(
         now.getUTCFullYear(),
