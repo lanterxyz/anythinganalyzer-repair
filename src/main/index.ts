@@ -165,7 +165,16 @@ app.whenReady().then(async () => {
   if (mitmConfig.enabled) {
     caManager
       .init()
-      .then(() => mitmProxy.start(mitmConfig.port))
+      .then(() => {
+        // If CA was auto-regenerated (CA_VERSION changed), the installed cert
+        // no longer matches — force caInstalled=false so the UI warns the user
+        if (caManager.wasCaRegenerated() && mitmConfig.caInstalled) {
+          console.log("[Main] CA regenerated, resetting caInstalled flag");
+          mitmConfig.caInstalled = false;
+          saveMitmProxyConfig(mitmConfig);
+        }
+        return mitmProxy.start(mitmConfig.port);
+      })
       .then(() => {
         console.log("[Main] MITM proxy auto-started on port", mitmConfig.port);
         if (mitmConfig.systemProxy) {

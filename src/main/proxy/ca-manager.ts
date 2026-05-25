@@ -27,12 +27,21 @@ export class CaManager {
   /** LRU-ish cache: hostname → tls.SecureContext */
   private contextCache = new Map<string, tls.SecureContext>();
 
+  private _caRegenerated = false;
+
   constructor(private certsDir: string) {}
+
+  /** Whether the last init() call regenerated the CA (version mismatch). */
+  wasCaRegenerated(): boolean {
+    return this._caRegenerated;
+  }
 
   /**
    * Load existing CA from disk, or generate a new one.
    */
   async init(): Promise<void> {
+    this._caRegenerated = false;
+
     if (!existsSync(this.certsDir)) {
       mkdirSync(this.certsDir, { recursive: true });
     }
@@ -66,6 +75,7 @@ export class CaManager {
       }
       await this.generate();
       writeFileSync(versionPath, String(CA_VERSION), "utf-8");
+      this._caRegenerated = true;
     }
   }
 

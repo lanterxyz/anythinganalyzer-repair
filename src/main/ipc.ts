@@ -590,6 +590,12 @@ export function registerIpcHandlers(deps: {
     saveMitmProxyConfig(config);
     if (config.enabled && !deps.mitmProxy.isRunning()) {
       await deps.caManager.init();
+      // If CA was auto-regenerated, the installed cert no longer matches
+      if (deps.caManager.wasCaRegenerated() && config.caInstalled) {
+        console.log("[MitmProxy] CA regenerated, resetting caInstalled flag");
+        config.caInstalled = false;
+        saveMitmProxyConfig(config);
+      }
       await deps.mitmProxy.start(config.port);
     } else if (!config.enabled && deps.mitmProxy.isRunning()) {
       await deps.mitmProxy.stop();
