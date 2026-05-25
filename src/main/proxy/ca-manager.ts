@@ -14,7 +14,7 @@ const CACHE_MAX_SIZE = 500;
  * Increment this when the CA generation logic changes (e.g., different extensions,
  * issuer format fix). Existing CA certs on disk will be regenerated automatically.
  */
-const CA_VERSION = 6;
+const CA_VERSION = 7;
 const CA_VERSION_FILE = "ca-version.txt";
 
 /**
@@ -197,7 +197,9 @@ export class CaManager {
       throw new Error("CA not initialized");
     }
 
-    const keys = this.caKey;
+    // Generate a unique key pair for each leaf certificate.
+    // Sharing the CA key pair for leaf certs is rejected by Android BoringSSL.
+    const keys = forge.pki.rsa.generateKeyPair({ bits: 2048 });
     const cert = forge.pki.createCertificate();
 
     cert.publicKey = keys.publicKey;
@@ -230,16 +232,24 @@ export class CaManager {
 
     // Build authorityKeyIdentifier from the CA certificate's subjectKeyIdentifier.
     // Forge stores SKI as a hex string (40 chars) but authorityKeyIdentifier's
-    // keyIdentifier field expects raw bytes (20 bytes). We must decode it.
+    // keyIdentifier field expects an ASN1 OCTET STRING wrapping the raw 20 bytes.
+    let caSkiAsn1: forge.asn1.Asn1 | undefined;
     const caSkiExt = this.caCert.extensions.find(
-      (e: forge.pki.Extension) => e.name === "subjectKeyIdentifier",
+      (e: { name: string }) => e.name === "subjectKeyIdentifier",
     );
-    const caSkiRaw = caSkiExt
-      ? forge.util.hexToBytes(
-          (caSkiExt as forge.pki.Extension & { subjectKeyIdentifier: string })
-            .subjectKeyIdentifier,
-        )
-      : undefined;
+    if (caSkiExt) {
+      const skiHex = (caSkiExt as Record<string, unknown>).subjectKeyIdentifier;
+      if (typeof skiHex === "string" && skiHex.length > 0) {
+        const raw = forge.util.hexToBytes(skiHex);
+        // Wrap in an ASN1 OCTET STRING, which is what forge expects for keyIdentifier
+        caSkiAsn1 = forge.asn1.create(
+          forge.asn1.Class.UNIVERSAL,
+          forge.asn1.Type.OCTETSTRING,
+          false,
+          raw,
+        );
+      }
+    }
 
     cert.setExtensions([
       { name: "basicConstraints", cA: false },
@@ -249,12 +259,12 @@ export class CaManager {
         keyEncipherment: true,
         critical: true,
       },
-      { name: "extKeyUsage", serverAuth: true, critical: true },
+      { name: "extKeyUsage", serverAuth: true },
       { name: "subjectAltName", altNames },
       { name: "subjectKeyIdentifier" },
       {
         name: "authorityKeyIdentifier",
-        ...(caSkiRaw ? { keyIdentifier: caSkiRaw } : { keyIdentifier: false }),
+        ...(caSkiAsn1 ? { keyIdentifier: caSkiAsn1 } : { keyIdentifier: false }),
       },
     ]);
 

@@ -29,7 +29,8 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('scripts',{}\\), indent=2\\)\\)\")",
       "Bash(npm config *)",
       "Bash(node_modules/typescript/bin/tsc --noEmit -p tsconfig.node.json)",
-      "Bash(npx electron-vite *)"
+      "Bash(npx electron-vite *)",
+      "Bash(git stash *)"
     ]
   }
 }
