@@ -30,7 +30,17 @@
       "Bash(npm config *)",
       "Bash(node_modules/typescript/bin/tsc --noEmit -p tsconfig.node.json)",
       "Bash(npx electron-vite *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(openssl s_client -connect localhost:443 -CAfile /tmp/final-ca.pem -cert /tmp/final-leaf.pem -key /tmp/final-key.pem)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(pip3 show *)",
+      "Read(//etc/ssl/certs/**)",
+      "Bash(xargs -I{} head -5 {})",
+      "Bash(npm list *)",
+      "Bash(openssl s_client -connect localhost:8888 -servername www.baidu.com)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/AOSP-10/platform_system_core/master/rootdir/etc/security/cacerts/00606b69.0\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/nickelc/android-truststore/main/cacerts/0c1e2443.0\")"
     ]
   }
 }

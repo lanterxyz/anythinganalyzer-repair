@@ -231,23 +231,16 @@ export class CaManager {
       : [{ type: 2, value: hostname }];
 
     // Build authorityKeyIdentifier from the CA certificate's subjectKeyIdentifier.
-    // Forge stores SKI as a hex string (40 chars) but authorityKeyIdentifier's
-    // keyIdentifier field expects an ASN1 OCTET STRING wrapping the raw 20 bytes.
-    let caSkiAsn1: forge.asn1.Asn1 | undefined;
+    // Forge stores SKI as a hex string (40 chars). node-forge's authorityKeyIdentifier
+    // handler expects keyIdentifier to be raw bytes (not an ASN1 object).
     const caSkiExt = this.caCert.extensions.find(
       (e: { name: string }) => e.name === "subjectKeyIdentifier",
     );
+    let caSkiRaw: string | undefined;
     if (caSkiExt) {
       const skiHex = (caSkiExt as Record<string, unknown>).subjectKeyIdentifier;
       if (typeof skiHex === "string" && skiHex.length > 0) {
-        const raw = forge.util.hexToBytes(skiHex);
-        // Wrap in an ASN1 OCTET STRING, which is what forge expects for keyIdentifier
-        caSkiAsn1 = forge.asn1.create(
-          forge.asn1.Class.UNIVERSAL,
-          forge.asn1.Type.OCTETSTRING,
-          false,
-          raw,
-        );
+        caSkiRaw = forge.util.hexToBytes(skiHex);
       }
     }
 
@@ -264,7 +257,7 @@ export class CaManager {
       { name: "subjectKeyIdentifier" },
       {
         name: "authorityKeyIdentifier",
-        ...(caSkiAsn1 ? { keyIdentifier: caSkiAsn1 } : { keyIdentifier: false }),
+        ...(caSkiRaw ? { keyIdentifier: caSkiRaw } : { keyIdentifier: false }),
       },
     ]);
 
