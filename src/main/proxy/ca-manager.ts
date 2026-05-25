@@ -185,9 +185,9 @@ export class CaManager {
     cert.sign(keys.privateKey, forge.md.sha256.create());
     this.caCert = cert;
 
-    // Persist
-    const keyPem = forge.pki.privateKeyToPem(keys.privateKey);
-    const certPem = forge.pki.certificateToPem(cert);
+    // Persist — convert CRLF to LF for Android system cert compatibility
+    const keyPem = forge.pki.privateKeyToPem(keys.privateKey).replace(/\r\n/g, "\n");
+    const certPem = forge.pki.certificateToPem(cert).replace(/\r\n/g, "\n");
     writeFileSync(join(this.certsDir, CA_KEY_FILE), keyPem, "utf-8");
     writeFileSync(join(this.certsDir, CA_CERT_FILE), certPem, "utf-8");
   }
@@ -264,10 +264,10 @@ export class CaManager {
     cert.sign(this.caKey.privateKey, forge.md.sha256.create());
 
     // Include CA cert in chain so mobile clients receive the full chain
-    const leafPem = forge.pki.certificateToPem(cert);
-    const caPem = forge.pki.certificateToPem(this.caCert!);
+    const leafPem = forge.pki.certificateToPem(cert).replace(/\r\n/g, "\n");
+    const caPem = forge.pki.certificateToPem(this.caCert!).replace(/\r\n/g, "\n");
     return {
-      key: forge.pki.privateKeyToPem(keys.privateKey),
+      key: forge.pki.privateKeyToPem(keys.privateKey).replace(/\r\n/g, "\n"),
       cert: leafPem + caPem,
     };
   }

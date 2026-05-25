@@ -169,7 +169,9 @@ function showTab(name, el){
  */
 export function getCertFileContent(caManager: CaManager): Buffer {
   const certPath = caManager.getCaCertPath();
-  return readFileSync(certPath);
+  const raw = readFileSync(certPath, "utf-8");
+  // Ensure LF line endings for Android system cert compatibility
+  return Buffer.from(raw.replace(/\r\n/g, "\n"), "utf-8");
 }
 
 /**
