@@ -14,7 +14,7 @@ const CACHE_MAX_SIZE = 500;
  * Increment this when the CA generation logic changes (e.g., different extensions,
  * issuer format fix). Existing CA certs on disk will be regenerated automatically.
  */
-const CA_VERSION = 7;
+const CA_VERSION = 8;
 const CA_VERSION_FILE = "ca-version.txt";
 
 /**
@@ -159,8 +159,8 @@ export class CaManager {
     );
 
     const attrs: forge.pki.CertificateField[] = [
-      { shortName: "CN", value: "Anything Analyzer CA" },
-      { shortName: "O", value: "Anything Analyzer" },
+      { shortName: "O", value: "Anything Analyzer", valueTagClass: forge.asn1.Type.UTF8 },
+      { shortName: "CN", value: "Anything Analyzer CA", valueTagClass: forge.asn1.Type.UTF8 },
     ];
     cert.setSubject(attrs);
     cert.setIssuer(attrs);
@@ -218,10 +218,10 @@ export class CaManager {
       ),
     );
 
-    cert.setSubject([{ shortName: "CN", value: hostname }]);
+    cert.setSubject([{ shortName: "CN", value: hostname, valueTagClass: forge.asn1.Type.UTF8 }]);
     cert.setIssuer([
-      { shortName: "CN", value: "Anything Analyzer CA" },
-      { shortName: "O", value: "Anything Analyzer" },
+      { shortName: "O", value: "Anything Analyzer", valueTagClass: forge.asn1.Type.UTF8 },
+      { shortName: "CN", value: "Anything Analyzer CA", valueTagClass: forge.asn1.Type.UTF8 },
     ]);
 
     // SAN: support both DNS name and IP address
