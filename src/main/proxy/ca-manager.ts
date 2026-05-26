@@ -4,6 +4,27 @@ import * as tls from "tls";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 
+// node-forge encodes BOOLEAN TRUE as 0xFF, but DER (X.690 §11.1) requires 0x01.
+// Android BoringSSL enforces strict DER and may reject certs with 0xFF booleans.
+// Monkey-patch forge.asn1.create to fix this at the source before any cert is built.
+const _origAsn1Create = forge.asn1.create;
+forge.asn1.create = function (
+  cls: number,
+  type: number,
+  constructed: boolean,
+  value: string,
+  options?: Record<string, unknown>,
+) {
+  if (
+    type === forge.asn1.Type.BOOLEAN &&
+    typeof value === "string" &&
+    value.charCodeAt(0) === 0xff
+  ) {
+    value = String.fromCharCode(0x01);
+  }
+  return _origAsn1Create.call(this, cls, type, constructed, value, options);
+};
+
 const CA_KEY_FILE = "ca-key.pem";
 const CA_CERT_FILE = "ca-cert.pem";
 const CA_VALIDITY_YEARS = 10;
@@ -14,7 +35,7 @@ const CACHE_MAX_SIZE = 500;
  * Increment this when the CA generation logic changes (e.g., different extensions,
  * issuer format fix). Existing CA certs on disk will be regenerated automatically.
  */
-const CA_VERSION = 8;
+const CA_VERSION = 9;
 const CA_VERSION_FILE = "ca-version.txt";
 
 /**

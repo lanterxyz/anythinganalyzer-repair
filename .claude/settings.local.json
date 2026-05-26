@@ -40,7 +40,8 @@
       "Bash(openssl s_client -connect localhost:8888 -servername www.baidu.com)",
       "Bash(python3 -c ' *)",
       "Bash(curl -sL \"https://raw.githubusercontent.com/AOSP-10/platform_system_core/master/rootdir/etc/security/cacerts/00606b69.0\")",
-      "Bash(curl -sL \"https://raw.githubusercontent.com/nickelc/android-truststore/main/cacerts/0c1e2443.0\")"
+      "Bash(curl -sL \"https://raw.githubusercontent.com/nickelc/android-truststore/main/cacerts/0c1e2443.0\")",
+      "WebFetch(domain:chromium.googlesource.com)"
     ]
   }
 }
