@@ -1042,16 +1042,17 @@ export class MitmProxyServer extends EventEmitter {
       // Serve the CA certificate file for download
       try {
         if (reqPath === "/cert.android-system") {
-          // PEM format with Android system cert naming ({hash}.0)
+          // DER (binary) format with Android system cert naming ({hash}.0)
+          // Android's /system/etc/security/cacerts/ requires DER-encoded certs, not PEM.
           const hash = this.caManager.getSubjectHashOld();
-          const certContent = getCertFileContent(this.caManager);
+          const derContent = getCertDerContent(this.caManager);
           res.writeHead(200, {
-            "Content-Type": "application/x-pem-file",
+            "Content-Type": "application/x-x509-ca-cert",
             "Content-Disposition": `attachment; filename="${hash}.0"`,
-            "Content-Length": certContent.length,
+            "Content-Length": derContent.length,
             "Cache-Control": "no-cache",
           });
-          res.end(certContent);
+          res.end(derContent);
         } else {
           // .cer → DER (binary) format for mobile compatibility
           // .crt / .pem → PEM (text) format
