@@ -152,7 +152,6 @@ export class CaManager {
     const ctx = tls.createSecureContext({
       key,
       cert,
-      ca: forge.pki.certificateToPem(this.caCert!),
     });
     this.contextCache.set(hostname, ctx);
     return ctx;
@@ -294,12 +293,12 @@ export class CaManager {
 
     cert.sign(this.caKey.privateKey, forge.md.sha256.create());
 
-    // Include CA cert in chain so mobile clients receive the full chain
+    // Only send leaf cert — root CA must already be in client trust store.
+    // Including root in chain can cause Android BoringSSL to reject it.
     const leafPem = forge.pki.certificateToPem(cert).replace(/\r\n/g, "\n");
-    const caPem = forge.pki.certificateToPem(this.caCert!).replace(/\r\n/g, "\n");
     return {
       key: forge.pki.privateKeyToPem(keys.privateKey).replace(/\r\n/g, "\n"),
-      cert: leafPem + caPem,
+      cert: leafPem,
     };
   }
 
