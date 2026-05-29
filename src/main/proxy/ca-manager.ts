@@ -89,6 +89,7 @@ export class CaManager {
         publicKey: forge.pki.setRsaPublicKey(privateKey.n, privateKey.e),
       } as forge.pki.rsa.KeyPair;
       this.caCert = forge.pki.certificateFromPem(certPem);
+      this.printCAFingerprint();
     } else {
       // Version mismatch or missing — regenerate CA
       if (existsSync(keyPath) || existsSync(certPath)) {
@@ -97,11 +98,27 @@ export class CaManager {
       await this.generate();
       writeFileSync(versionPath, String(CA_VERSION), "utf-8");
       this._caRegenerated = true;
+      this.printCAFingerprint();
     }
   }
 
   isInitialized(): boolean {
     return this.caCert !== null && this.caKey !== null;
+  }
+
+  /**
+   * Log the CA certificate fingerprint so users can verify the .0 file
+   * installed on Android matches the proxy's current CA.
+   */
+  private printCAFingerprint(): void {
+    if (!this.caCert) return;
+    const skiExt = this.caCert.extensions.find((e: { name: string }) => e.name === "subjectKeyIdentifier");
+    const ski = skiExt ? (skiExt as Record<string, unknown>).subjectKeyIdentifier as string : "unknown";
+    const hash = this.getSubjectHashOld();
+    console.log(
+      `[CaManager] CA fingerprint: SKI=${ski}  file=${hash}.0` +
+      (this._caRegenerated ? " (REGENERATED - reinstall on Android!)" : ""),
+    );
   }
 
   getCaCertPath(): string {
