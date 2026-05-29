@@ -46,7 +46,9 @@
       "Bash(openssl s_server -cert /tmp/diag-leaf-cert.pem -key /tmp/diag-leaf-key.pem -CAfile /tmp/diag-ca.pem -accept 34567 -www -tls1_2)",
       "Bash(openssl s_client -connect 127.0.0.1:34567 -servername www.baidu.com -CAfile /tmp/diag-ca.pem -verify_hostname www.baidu.com -verify_return_error)",
       "Bash(kill %1)",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(xxd /home/newnew/278ba3db.0)",
+      "Bash(xxd)"
     ]
   }
 }
