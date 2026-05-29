@@ -1104,8 +1104,8 @@ export class MitmProxyServer extends EventEmitter {
 
     // Debug: download leaf certificate for a given hostname (diagnostic)
     if (reqPath === "/debug/leaf-cert") {
-      const queryHost = url.parse(req.url || "/").query || "";
-      const targetHost = queryHost || "www.baidu.com";
+      const parsed = url.parse(req.url || "/", true);
+      const targetHost = (parsed.query as Record<string, string>).host || "www.baidu.com";
       try {
         const { cert } = (this.caManager as any).issueLeafCert
           ? (this.caManager as any).issueLeafCert(targetHost)
