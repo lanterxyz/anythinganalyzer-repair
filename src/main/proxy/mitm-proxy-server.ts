@@ -597,6 +597,18 @@ export class MitmProxyServer extends EventEmitter {
     const tlsSocket = new tls.TLSSocket(clientSocket, {
       isServer: true,
       secureContext,
+      SNICallback: (servername: string, cb: (err: Error | null, ctx: tls.SecureContext) => void) => {
+        console.log(
+          `[MitmProxy] TLS SNI: "${servername}", CONNECT host: "${hostname}"` +
+          (servername !== hostname ? ` MISMATCH (using SNI hostname)` : ""),
+        );
+        if (servername !== hostname) {
+          const sniCtx = this.caManager.getSecureContextForHost(servername);
+          cb(null, sniCtx);
+        } else {
+          cb(null, secureContext);
+        }
+      },
     });
 
     if (head.length > 0) tlsSocket.unshift(head);
@@ -620,7 +632,14 @@ export class MitmProxyServer extends EventEmitter {
     miniServer.emit("connection", tlsSocket);
 
     tlsSocket.on("error", (err) => {
-      console.warn(`[MitmProxy] TLS error for ${hostname}:`, err.message);
+      const tlsErr = err as Error & { code?: string; library?: string; reason?: string };
+      console.warn(
+        `[MitmProxy] TLS error for ${hostname}:`,
+        tlsErr.message,
+        tlsErr.code ? `code=${tlsErr.code}` : "",
+        tlsErr.library ? `library=${tlsErr.library}` : "",
+        tlsErr.reason ? `reason=${tlsErr.reason}` : "",
+      );
     });
 
     clientSocket.on("error", () => {
@@ -1078,6 +1097,50 @@ export class MitmProxyServer extends EventEmitter {
         console.error("[MitmProxy] Failed to read CA cert:", err);
         res.writeHead(500);
         res.end("CA certificate not available. Please initialize the proxy first.");
+      }
+      return;
+    }
+
+    // Debug: download leaf certificate for a given hostname (diagnostic)
+    if (reqPath === "/debug/leaf-cert") {
+      const queryHost = url.parse(req.url || "/").query || "";
+      const targetHost = queryHost || "www.baidu.com";
+      try {
+        const { cert } = (this.caManager as any).issueLeafCert
+          ? (this.caManager as any).issueLeafCert(targetHost)
+          : { cert: "error: issueLeafCert not accessible" };
+        res.writeHead(200, {
+          "Content-Type": "application/x-pem-file",
+          "Content-Disposition": `attachment; filename="leaf-${targetHost}.pem"`,
+          "Cache-Control": "no-cache",
+        });
+        res.end(cert);
+      } catch (err) {
+        res.writeHead(500);
+        res.end(`Failed to generate leaf cert: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    // Debug: JSON info about CA cert and leaf cert for diagnostics
+    if (reqPath === "/debug/cert-info") {
+      try {
+        const hash = this.caManager.getSubjectHashOld();
+        const caPem = getCertFileContent(this.caManager).toString("utf-8");
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+        res.end(JSON.stringify({
+          caSubjectHash: hash,
+          androidFilename: `${hash}.0`,
+          caInitialized: this.caManager.isInitialized(),
+          instructions: {
+            verifyWithOpenSSL: `openssl x509 -in ${hash}.0 -inform DER -text -noout`,
+            testTLSServer: `openssl s_server -cert leaf.pem -key leaf-key.pem -accept 8443 -www`,
+            testTLSClient: `openssl s_client -connect PROXY_IP:PROXY_PORT -servername www.baidu.com -CAfile ca.pem`,
+          },
+        }, null, 2));
+      } catch (err) {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: (err as Error).message }));
       }
       return;
     }

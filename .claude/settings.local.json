@@ -41,7 +41,12 @@
       "Bash(python3 -c ' *)",
       "Bash(curl -sL \"https://raw.githubusercontent.com/AOSP-10/platform_system_core/master/rootdir/etc/security/cacerts/00606b69.0\")",
       "Bash(curl -sL \"https://raw.githubusercontent.com/nickelc/android-truststore/main/cacerts/0c1e2443.0\")",
-      "WebFetch(domain:chromium.googlesource.com)"
+      "WebFetch(domain:chromium.googlesource.com)",
+      "Bash(git *)",
+      "Bash(openssl s_server -cert /tmp/diag-leaf-cert.pem -key /tmp/diag-leaf-key.pem -CAfile /tmp/diag-ca.pem -accept 34567 -www -tls1_2)",
+      "Bash(openssl s_client -connect 127.0.0.1:34567 -servername www.baidu.com -CAfile /tmp/diag-ca.pem -verify_hostname www.baidu.com -verify_return_error)",
+      "Bash(kill %1)",
+      "Bash(python3 *)"
     ]
   }
 }
