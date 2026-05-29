@@ -15,6 +15,7 @@ import { SocksClient } from "socks";
 import type { CaManager } from "./ca-manager";
 import type { ProxyConfig } from "../../shared/types";
 import { generateCertPage, getCertFileContent, getCertDerContent, isCertDownloadHost } from "./cert-download-page";
+import log from "electron-log";
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB — same limit as CdpManager
 const BINARY_CONTENT_TYPES = [
@@ -93,10 +94,10 @@ export class MitmProxyServer extends EventEmitter {
   setUpstreamProxy(config: ProxyConfig | null): void {
     if (!config || config.type === "none") {
       this.upstreamProxy = null;
-      console.log("[MitmProxy] Upstream proxy disabled");
+      log.info("[MitmProxy] Upstream proxy disabled");
     } else {
       this.upstreamProxy = config;
-      console.log(`[MitmProxy] Upstream proxy set to ${config.type}://${config.host}:${config.port}`);
+      log.info(`[MitmProxy] Upstream proxy set to ${config.type}://${config.host}:${config.port}`);
     }
   }
 
@@ -123,11 +124,11 @@ export class MitmProxyServer extends EventEmitter {
     return new Promise((resolve, reject) => {
       this.server!.listen(port, "0.0.0.0", () => {
         this.port = port;
-        console.log(`[MitmProxy] Listening on port ${port}`);
+        log.info(`[MitmProxy] Listening on port ${port}`);
         resolve();
       });
       this.server!.on("error", (err) => {
-        console.error("[MitmProxy] Server error:", err.message);
+        log.error("[MitmProxy] Server error:", err.message);
         reject(err);
       });
     });
@@ -144,7 +145,7 @@ export class MitmProxyServer extends EventEmitter {
 
     return new Promise((resolve) => {
       this.server!.close(() => {
-        console.log("[MitmProxy] Stopped");
+        log.info("[MitmProxy] Stopped");
         this.server = null;
         this.port = null;
         resolve();
@@ -372,7 +373,7 @@ export class MitmProxyServer extends EventEmitter {
       this.connectToTarget(hostname, port)
         .then(connectToServer)
         .catch((err) => {
-          console.warn("[MitmProxy] WS upstream proxy error:", err.message);
+          log.warn("[MitmProxy] WS upstream proxy error:", err.message);
           clientSocket.destroy();
         });
     } else {
@@ -380,7 +381,7 @@ export class MitmProxyServer extends EventEmitter {
         connectToServer(serverSocket);
       });
       serverSocket.on("error", (err) => {
-        console.warn(`[MitmProxy] WS connect error for ${hostname}:`, err.message);
+        log.warn(`[MitmProxy] WS connect error for ${hostname}:`, err.message);
         clientSocket.destroy();
       });
     }
@@ -510,7 +511,7 @@ export class MitmProxyServer extends EventEmitter {
       });
 
       proxyReq.on("error", (err) => {
-        console.warn("[MitmProxy] HTTP proxy error:", err.message);
+        log.warn("[MitmProxy] HTTP proxy error:", err.message);
         if (!clientRes.headersSent) {
           clientRes.writeHead(502);
           clientRes.end("Bad Gateway");
@@ -555,7 +556,7 @@ export class MitmProxyServer extends EventEmitter {
       });
 
       proxyReq.on("error", (err) => {
-        console.warn("[MitmProxy] HTTP SOCKS5 proxy error:", err.message);
+        log.warn("[MitmProxy] HTTP SOCKS5 proxy error:", err.message);
         if (!clientRes.headersSent) {
           clientRes.writeHead(502);
           clientRes.end("Bad Gateway");
@@ -566,7 +567,7 @@ export class MitmProxyServer extends EventEmitter {
       proxyReq.end();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      console.warn("[MitmProxy] SOCKS5 connection error:", message);
+      log.warn("[MitmProxy] SOCKS5 connection error:", message);
       if (!clientRes.headersSent) {
         clientRes.writeHead(502);
         clientRes.end("Bad Gateway");
@@ -598,7 +599,7 @@ export class MitmProxyServer extends EventEmitter {
       isServer: true,
       secureContext,
       SNICallback: (servername: string, cb: (err: Error | null, ctx: tls.SecureContext) => void) => {
-        console.log(
+        log.info(
           `[MitmProxy] TLS SNI: "${servername}", CONNECT host: "${hostname}"` +
           (servername !== hostname ? ` MISMATCH (using SNI hostname)` : ""),
         );
@@ -633,7 +634,7 @@ export class MitmProxyServer extends EventEmitter {
 
     tlsSocket.on("error", (err) => {
       const tlsErr = err as Error & { code?: string; library?: string; reason?: string };
-      console.warn(
+      log.warn(
         `[MitmProxy] TLS error for ${hostname}:`,
         tlsErr.message,
         tlsErr.code ? `code=${tlsErr.code}` : "",
@@ -792,7 +793,7 @@ export class MitmProxyServer extends EventEmitter {
       );
 
       tlsConnection.on("error", (err) => {
-        console.warn(`[MitmProxy] WebSocket upstream TLS error for ${hostname}:`, err.message);
+        log.warn(`[MitmProxy] WebSocket upstream TLS error for ${hostname}:`, err.message);
         clientSocket.destroy();
       });
     };
@@ -801,7 +802,7 @@ export class MitmProxyServer extends EventEmitter {
       this.connectToTarget(hostname, port)
         .then(connectAndUpgrade)
         .catch((err) => {
-          console.warn("[MitmProxy] WebSocket upstream proxy error:", err.message);
+          log.warn("[MitmProxy] WebSocket upstream proxy error:", err.message);
           clientSocket.destroy();
         });
     } else {
@@ -809,7 +810,7 @@ export class MitmProxyServer extends EventEmitter {
         connectAndUpgrade(targetSocket);
       });
       targetSocket.on("error", (err) => {
-        console.warn(`[MitmProxy] WebSocket connect error for ${hostname}:`, err.message);
+        log.warn(`[MitmProxy] WebSocket connect error for ${hostname}:`, err.message);
         clientSocket.destroy();
       });
     }
@@ -861,7 +862,7 @@ export class MitmProxyServer extends EventEmitter {
     });
 
     proxyReq.on("error", (err) => {
-      console.warn("[MitmProxy] HTTPS proxy error:", err.message);
+      log.warn("[MitmProxy] HTTPS proxy error:", err.message);
       if (!clientRes.headersSent) {
         clientRes.writeHead(502);
         clientRes.end("Bad Gateway");
@@ -905,7 +906,7 @@ export class MitmProxyServer extends EventEmitter {
       });
 
       proxyReq.on("error", (err) => {
-        console.warn("[MitmProxy] HTTPS upstream proxy error:", err.message);
+        log.warn("[MitmProxy] HTTPS upstream proxy error:", err.message);
         tunnelSocket.destroy();
         if (!clientRes.headersSent) {
           clientRes.writeHead(502);
@@ -917,7 +918,7 @@ export class MitmProxyServer extends EventEmitter {
       proxyReq.end();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      console.warn("[MitmProxy] Upstream tunnel error:", message);
+      log.warn("[MitmProxy] Upstream tunnel error:", message);
       if (!clientRes.headersSent) {
         clientRes.writeHead(502);
         clientRes.end("Bad Gateway");
@@ -1029,7 +1030,7 @@ export class MitmProxyServer extends EventEmitter {
           clientSocket.on("error", () => serverSocket.destroy());
         })
         .catch((err) => {
-          console.warn("[MitmProxy] Tunnel via upstream proxy error:", err.message);
+          log.warn("[MitmProxy] Tunnel via upstream proxy error:", err.message);
           clientSocket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
         });
     } else {
@@ -1094,7 +1095,7 @@ export class MitmProxyServer extends EventEmitter {
           res.end(certContent);
         }
       } catch (err) {
-        console.error("[MitmProxy] Failed to read CA cert:", err);
+        log.error("[MitmProxy] Failed to read CA cert:", err);
         res.writeHead(500);
         res.end("CA certificate not available. Please initialize the proxy first.");
       }
