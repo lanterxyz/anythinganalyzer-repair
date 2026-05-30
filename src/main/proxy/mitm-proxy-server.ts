@@ -593,22 +593,19 @@ export class MitmProxyServer extends EventEmitter {
     // Acknowledge CONNECT
     clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
 
-    // Create TLS server socket with a dynamic certificate for this host
+    // Create TLS server socket. The initial secureContext is a fallback;
+    // the SNICallback is the authoritative source that always generates
+    // the correct certificate based on the client's SNI hostname.
     const secureContext = this.caManager.getSecureContextForHost(hostname);
     const tlsSocket = new tls.TLSSocket(clientSocket, {
       isServer: true,
       secureContext,
+      ALPNProtocols: ["http/1.1"], // Disable HTTP/2 to prevent connection coalescing
       SNICallback: (servername: string, cb: (err: Error | null, ctx: tls.SecureContext) => void) => {
-        log.info(
-          `[MitmProxy] TLS SNI: "${servername}", CONNECT host: "${hostname}"` +
-          (servername !== hostname ? ` MISMATCH (using SNI hostname)` : ""),
-        );
-        if (servername !== hostname) {
-          const sniCtx = this.caManager.getSecureContextForHost(servername);
-          cb(null, sniCtx);
-        } else {
-          cb(null, secureContext);
-        }
+        log.info(`[MitmProxy] TLS SNI: "${servername}" (CONNECT was "${hostname}")`);
+        // Always use SNI as the source of truth — never trust CONNECT hostname
+        const sniCtx = this.caManager.getSecureContextForHost(servername);
+        cb(null, sniCtx);
       },
     });
 

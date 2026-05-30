@@ -28,7 +28,7 @@ forge.asn1.create = function (
 const CA_KEY_FILE = "ca-key.pem";
 const CA_CERT_FILE = "ca-cert.pem";
 const CA_VALIDITY_YEARS = 10;
-const LEAF_VALIDITY_DAYS = 825; // Apple max
+const LEAF_VALIDITY_DAYS = 60; // Chrome/Apple max 398 days — stay well under
 const CACHE_MAX_SIZE = 500;
 
 /**
