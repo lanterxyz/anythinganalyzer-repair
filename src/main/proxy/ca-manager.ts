@@ -332,7 +332,6 @@ export class CaManager {
       key: forge.pki.privateKeyToPem(keys.privateKey).replace(/\r\n/g, "\n"),
       cert: leafPem + caPem,
     };
-    };
   }
 
   private randomSerial(): string {
