@@ -292,7 +292,6 @@ export class CaManager {
     }
 
     cert.setExtensions([
-      { name: "basicConstraints", cA: false },
       {
         name: "keyUsage",
         digitalSignature: true,
@@ -301,7 +300,6 @@ export class CaManager {
       },
       { name: "extKeyUsage", serverAuth: true },
       { name: "subjectAltName", altNames },
-      { name: "subjectKeyIdentifier" },
       {
         name: "authorityKeyIdentifier",
         ...(caSkiRaw ? { keyIdentifier: caSkiRaw } : { keyIdentifier: false }),
