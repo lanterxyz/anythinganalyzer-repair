@@ -292,6 +292,7 @@ export class CaManager {
     }
 
     cert.setExtensions([
+      { name: "basicConstraints", cA: false },
       {
         name: "keyUsage",
         digitalSignature: true,
@@ -300,6 +301,7 @@ export class CaManager {
       },
       { name: "extKeyUsage", serverAuth: true },
       { name: "subjectAltName", altNames },
+      { name: "subjectKeyIdentifier" },
       {
         name: "authorityKeyIdentifier",
         ...(caSkiRaw ? { keyIdentifier: caSkiRaw } : { keyIdentifier: false }),
@@ -323,12 +325,13 @@ export class CaManager {
       console.warn("[CaManager] Native signing failed, using forge signature:", (err as Error).message);
     }
 
-    // Only send leaf cert — root CA must already be in client trust store.
-    // Including root in chain can cause Android BoringSSL to reject it.
+    // Send full chain (leaf + CA) so Android clients can validate
     const leafPem = forge.pki.certificateToPem(cert).replace(/\r\n/g, "\n");
+    const caPem = forge.pki.certificateToPem(this.caCert!).replace(/\r\n/g, "\n");
     return {
       key: forge.pki.privateKeyToPem(keys.privateKey).replace(/\r\n/g, "\n"),
-      cert: leafPem,
+      cert: leafPem + caPem,
+    };
     };
   }
 
